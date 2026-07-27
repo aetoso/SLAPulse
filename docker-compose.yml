@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: slapulse-postgres
+    environment:
+      POSTGRES_USER: slapulse
+      POSTGRES_PASSWORD: slapulse_local_dev
+      POSTGRES_DB: slapulse
+    ports:
+      - "5434:5432"
+    volumes:
+      - slapulse_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U slapulse -d slapulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  slapulse_pgdata:
