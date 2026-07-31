@@ -13,6 +13,7 @@ import {
   BarChart3,
   ShieldCheck,
   Activity,
+  Radar,
 } from "lucide-react";
 import { useIdentity, type Role } from "./IdentityContext";
 
@@ -23,13 +24,29 @@ const SEEDED_IDENTITIES: { actor: string; role: Role; label: string }[] = [
   { actor: "vp-eng", role: "EXECUTIVE", label: "Executive (VP Eng)" },
 ];
 
-const NAV_ITEMS: { href: string; label: string; icon: React.ElementType; roles?: Role[] }[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  roles?: Role[];
+}
+
+// Section: two-product split. "Uptime Monitoring" is Product 1 -- works
+// standalone, no AWS access needed, this is what a prospect sees before
+// they've granted anything. "AWS Evidence" is Product 2 -- explains WHY
+// a Product-1-detected outage happened, requires AWS access per customer.
+const UPTIME_NAV: NavItem[] = [{ href: "/monitors", label: "Monitors", icon: Radar }];
+
+const AWS_EVIDENCE_NAV: NavItem[] = [
+  { href: "/dashboard", label: "SLA Dashboard", icon: LayoutDashboard },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/evidence", label: "Evidence Explorer", icon: SearchCode },
   { href: "/reports", label: "Reports", icon: FileText, roles: ["ADMIN", "SRE", "CSM"] },
   { href: "/credits", label: "Credits", icon: Wallet, roles: ["ADMIN", "SRE"] },
   { href: "/corrections", label: "Corrections & Disputes", icon: GitPullRequestArrow, roles: ["ADMIN", "SRE"] },
+];
+
+const OTHER_NAV: NavItem[] = [
   { href: "/notifications", label: "Notifications", icon: Bell, roles: ["ADMIN", "SRE", "CSM"] },
   { href: "/executive", label: "Executive Portfolio", icon: BarChart3, roles: ["ADMIN", "SRE", "EXECUTIVE"] },
   { href: "/portal-admin", label: "Trust Portal Admin", icon: ShieldCheck, roles: ["ADMIN"] },
@@ -83,7 +100,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const visibleItems = NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(identity.role));
+  const visible = (items: NavItem[]) => items.filter((item) => !item.roles || item.roles.includes(identity.role));
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(href + "/");
+
+  const renderGroup = (label: string, items: NavItem[]) => {
+    const shown = visible(items);
+    if (shown.length === 0) return null;
+    return (
+      <div className="mb-4">
+        <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+        <div className="space-y-0.5">
+          {shown.map((item) => {
+            const active = isActive(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  active ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                <Icon className={`h-4 w-4 shrink-0 ${active ? "text-indigo-600" : "text-slate-400"}`} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen flex bg-slate-50">
@@ -95,25 +141,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="text-base font-semibold tracking-tight text-slate-900">SLAPulse</span>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
-          {visibleItems.map((item) => {
-            const active = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href));
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`}
-              >
-                <Icon className={`h-4 w-4 shrink-0 ${active ? "text-indigo-600" : "text-slate-400"}`} />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto py-4 px-3">
+          {renderGroup("Uptime Monitoring", UPTIME_NAV)}
+          {renderGroup("AWS Evidence (add-on)", AWS_EVIDENCE_NAV)}
+          {renderGroup("More", OTHER_NAV)}
         </nav>
 
         <div className="border-t border-slate-100 p-4">

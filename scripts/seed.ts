@@ -16,6 +16,45 @@ import { appendAuditEvent } from "../src/lib/auditLog";
 
 const VENDOR_ID = process.env.LOCAL_DEV_VENDOR_ID ?? "acme-saas-co";
 
+// Product 1: real uptime monitors. Unlike CUSTOMERS below (mocked AWS
+// signals), these hit real, live URLs -- github-down.example is a
+// deliberately nonexistent domain so the demo has one monitor that
+// genuinely goes DOWNTIME on the very first check, not just in theory.
+const MONITORS = [
+  {
+    monitorId: "beta-inc-app",
+    name: "Beta Inc — main app",
+    targetUrl: "https://example.com",
+    checkType: "HTTPS" as const,
+    contractSlaPct: 99.9,
+    linkedCustomerId: "beta-inc",
+  },
+  {
+    monitorId: "gamma-corp-api",
+    name: "Gamma Corp — API",
+    targetUrl: "https://api.github.com",
+    checkType: "HTTPS" as const,
+    contractSlaPct: 99.9,
+    linkedCustomerId: "gamma-corp",
+  },
+  {
+    monitorId: "public-status-page",
+    name: "Public status page (unlinked demo)",
+    targetUrl: "https://www.github.com",
+    checkType: "HTTPS" as const,
+    contractSlaPct: 99.95,
+    linkedCustomerId: null,
+  },
+  {
+    monitorId: "broken-endpoint-demo",
+    name: "Broken endpoint (demo: genuinely down)",
+    targetUrl: "https://this-domain-should-not-exist-slapulse-demo.com",
+    checkType: "HTTPS" as const,
+    contractSlaPct: 99.9,
+    linkedCustomerId: null,
+  },
+] as const;
+
 const CUSTOMERS = [
   {
     customerId: "beta-inc",
@@ -156,8 +195,20 @@ async function main() {
       }
     }
 
+    for (const m of MONITORS) {
+      const { rows } = await client.query(
+        `INSERT INTO uptime_monitors
+           (vendor_id, monitor_id, name, target_url, check_type, contract_sla_pct, linked_customer_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (vendor_id, monitor_id) DO NOTHING
+         RETURNING monitor_id`,
+        [VENDOR_ID, m.monitorId, m.name, m.targetUrl, m.checkType, m.contractSlaPct, m.linkedCustomerId]
+      );
+      console.log(rows.length > 0 ? `  + monitor: ${m.name}` : `  = monitor ${m.name} already exists, skipped`);
+    }
+
     await client.query("COMMIT");
-    console.log(`\nSeeded vendor "${VENDOR_ID}" with ${CUSTOMERS.length} customer environments.`);
+    console.log(`\nSeeded vendor "${VENDOR_ID}" with ${CUSTOMERS.length} customer environments and ${MONITORS.length} uptime monitors.`);
     console.log(`Next: npm run worker   (or POST /api/jobs/run from the dashboard) to generate SLA data.`);
   } catch (err) {
     await client.query("ROLLBACK");

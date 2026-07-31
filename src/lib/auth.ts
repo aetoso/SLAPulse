@@ -47,6 +47,7 @@ export const ROLE_PERMISSIONS: Record<
     triggerCorrections: boolean;
     viewAuditLog: boolean;
     viewExecutiveDashboard: boolean;
+    manageMonitors: boolean;
   }
 > = {
   ADMIN: {
@@ -56,6 +57,7 @@ export const ROLE_PERMISSIONS: Record<
     triggerCorrections: true,
     viewAuditLog: true,
     viewExecutiveDashboard: true,
+    manageMonitors: true,
   },
   SRE: {
     manageCustomers: false,
@@ -64,6 +66,7 @@ export const ROLE_PERMISSIONS: Record<
     triggerCorrections: true,
     viewAuditLog: true,
     viewExecutiveDashboard: true,
+    manageMonitors: true,
   },
   CSM: {
     manageCustomers: false,
@@ -72,6 +75,7 @@ export const ROLE_PERMISSIONS: Record<
     triggerCorrections: false,
     viewAuditLog: false,
     viewExecutiveDashboard: false,
+    manageMonitors: false,
   },
   EXECUTIVE: {
     manageCustomers: false,
@@ -80,6 +84,7 @@ export const ROLE_PERMISSIONS: Record<
     triggerCorrections: false,
     viewAuditLog: false,
     viewExecutiveDashboard: true,
+    manageMonitors: false,
   },
 };
 

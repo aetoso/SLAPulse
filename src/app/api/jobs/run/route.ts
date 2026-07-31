@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireIdentity, requirePermission, isResponse } from "@/lib/apiHelpers";
-import { runCollectionTick, runCalculationTick, runDailyOpsTick } from "@/jobs/dispatcher";
+import {
+  runCollectionTick,
+  runCalculationTick,
+  runDailyOpsTick,
+  runMonitorCheckTick,
+  runMonitorCalculationTick,
+} from "@/jobs/dispatcher";
 
 // LOCAL-DEV manual trigger, standing in for EventBridge's hourly/daily
 // schedules (Section 8.2-8.4, 9.1) so the dashboard can offer "run
@@ -28,9 +34,19 @@ export async function POST(req: NextRequest) {
     const result = await runDailyOpsTick(identity.actor);
     return NextResponse.json({ type: "dailyOps", result });
   }
+  if (type === "monitorCheck") {
+    const result = await runMonitorCheckTick(identity.actor);
+    return NextResponse.json({ type: "monitorCheck", result });
+  }
+  if (type === "monitorCalculate") {
+    const result = await runMonitorCalculationTick(identity.actor);
+    return NextResponse.json({ type: "monitorCalculate", result });
+  }
 
   const collectResult = await runCollectionTick();
   const calcResult = await runCalculationTick(identity.actor);
   const opsResult = await runDailyOpsTick(identity.actor);
-  return NextResponse.json({ type: "tick", collectResult, calcResult, opsResult });
+  const monitorCheckResult = await runMonitorCheckTick(identity.actor);
+  const monitorCalcResult = await runMonitorCalculationTick(identity.actor);
+  return NextResponse.json({ type: "tick", collectResult, calcResult, opsResult, monitorCheckResult, monitorCalcResult });
 }

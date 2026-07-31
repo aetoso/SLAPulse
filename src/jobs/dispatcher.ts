@@ -8,6 +8,9 @@ import { runDriftCheck, type DriftCheckSummary } from "./driftChecker";
 import { computeCreditsForBreached, type CreditSummary } from "./creditAutomation";
 import { runRenewalRiskCheck, type RenewalRiskSummary } from "./renewalRisk";
 import { createDisclosuresForBreaches, publishEligibleDisclosures } from "./disclosureManager";
+import { runUptimeCheckTick, type UptimeCheckSummary } from "./uptimeChecker";
+import { computeMonitorSlaStatus, currentMonthKey as monitorMonthKey } from "./monitorSlaCalculator";
+import { listMonitors } from "@/lib/monitors";
 
 // Section 8.1/9.1: the dispatcher discovers active customers from the
 // customers table on every tick rather than maintaining a per-customer
@@ -90,6 +93,34 @@ export async function runDailyOpsTick(actor: string, now: Date = new Date()): Pr
   const { created } = await createDisclosuresForBreaches(actor, now);
   const { published } = await publishEligibleDisclosures(now);
   return { drift, credits, renewalRisk, disclosuresCreated: created, disclosuresPublished: published };
+}
+
+// Product 1: independent uptime checks + monthly SLA rollup, run on
+// their own cadence (checks default to every 60s; the calculator can run
+// less often since a monitor's status only meaningfully changes minute
+// to minute, not check to check).
+export async function runMonitorCheckTick(actor: string, now: Date = new Date()): Promise<UptimeCheckSummary> {
+  return runUptimeCheckTick(actor, now);
+}
+
+export interface MonitorCalculationSummary {
+  monitorsProcessed: number;
+}
+
+export async function runMonitorCalculationTick(actor: string, now: Date = new Date()): Promise<MonitorCalculationSummary> {
+  const vendorIds = await listActiveVendorIds();
+  const month = monitorMonthKey(now);
+  let monitorsProcessed = 0;
+
+  for (const vendorId of vendorIds) {
+    const monitors = await listMonitors(vendorId, { activeOnly: true });
+    for (const monitor of monitors) {
+      await computeMonitorSlaStatus(vendorId, monitor, month, actor, now);
+      monitorsProcessed++;
+    }
+  }
+
+  return { monitorsProcessed };
 }
 
 async function ensurePartitions(now: Date): Promise<void> {
