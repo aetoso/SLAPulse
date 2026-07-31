@@ -54,7 +54,7 @@ export async function GET() {
       const latest = latestByMonitor.get(m.monitorId);
       return {
         ...m,
-        uptimePct: status?.uptime_pct ?? null,
+        uptimePct: status?.uptime_pct != null ? Number(status.uptime_pct) : null,
         slaStatus: status?.status ?? "DATA_INCOMPLETE",
         currentlyUp: latest?.is_up ?? null,
         lastCheckedAt: latest?.minute_timestamp ?? null,
