@@ -11,7 +11,7 @@ export async function GET() {
 
   const notifications = await withTenant(identity.vendorId, async (client) => {
     const { rows } = await client.query(
-      `SELECT id, customer_id, channel, severity, message, created_at
+      `SELECT id, channel, severity, message, created_at
        FROM notifications
        WHERE vendor_id = $1
        ORDER BY created_at DESC

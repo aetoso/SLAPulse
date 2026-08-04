@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Globe, ArrowUpRight } from "lucide-react";
+import type { RootCauseSnapshot } from "@/lib/awsRootCause";
+import { Globe, Search } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useIdentity } from "@/components/IdentityContext";
 
@@ -15,7 +16,6 @@ interface MonitorDetail {
   checkType: string;
   contractSlaPct: number;
   intervalSeconds: number;
-  linkedCustomerId: string | null;
   sslCheckEnabled: boolean;
   sslValidUntil: string | null;
   sslIssuer: string | null;
@@ -27,6 +27,10 @@ interface MonitorDetail {
   lastHeartbeatAt: string | null;
   maintenanceWindows: { start: string; end: string }[];
   regions: string[];
+  awsAlbTargetGroupArn: string | null;
+  awsEcsClusterName: string | null;
+  awsEcsServiceName: string | null;
+  awsRoute53HealthCheckId: string | null;
 }
 
 interface HistoryRow {
@@ -69,7 +73,6 @@ export default function MonitorDetailPage() {
   const [monitor, setMonitor] = useState<MonitorDetail | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [minutes, setMinutes] = useState<MinuteRow[]>([]);
-  const [linkedCustomer, setLinkedCustomer] = useState<{ customer_id: string; customer_name: string } | null>(null);
   const [regions, setRegions] = useState<RegionCheck[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
 
@@ -84,7 +87,6 @@ export default function MonitorDetailPage() {
       setMonitor(d.monitor);
       setHistory(d.history);
       setMinutes(d.recentMinutes);
-      setLinkedCustomer(d.linkedCustomer);
     }
     if (checksRes.ok) setRegions((await checksRes.json()).regions);
     if (incidentsRes.ok) setIncidents((await incidentsRes.json()).incidents);
@@ -106,24 +108,13 @@ export default function MonitorDetailPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">{monitor.name}</h1>
-          <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-1">
-            <Globe className="h-3.5 w-3.5" />
-            {monitor.checkType === "HEARTBEAT" ? monitor.name : monitor.targetUrl} · {monitor.checkType}
-            {monitor.checkType !== "HEARTBEAT" && ` · checked every ${monitor.intervalSeconds}s from ${monitor.regions.join(", ")}`}
-          </p>
-        </div>
-        {linkedCustomer && (
-          <Link
-            href={`/evidence?customerId=${linkedCustomer.customer_id}`}
-            className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 px-3 py-2 text-sm font-medium hover:bg-indigo-100"
-          >
-            View AWS evidence for {linkedCustomer.customer_name}
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          </Link>
-        )}
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">{monitor.name}</h1>
+        <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-1">
+          <Globe className="h-3.5 w-3.5" />
+          {monitor.checkType === "HEARTBEAT" ? monitor.name : monitor.targetUrl} · {monitor.checkType}
+          {monitor.checkType !== "HEARTBEAT" && ` · checked every ${monitor.intervalSeconds}s from ${monitor.regions.join(", ")}`}
+        </p>
       </div>
 
       {monitor.checkType === "HEARTBEAT" ? (
@@ -151,6 +142,10 @@ export default function MonitorDetailPage() {
 
       {monitor.sslCheckEnabled && (monitor.checkType === "HTTPS" || monitor.checkType === "KEYWORD") && (
         <SslCard monitor={monitor} />
+      )}
+
+      {(monitor.awsAlbTargetGroupArn || (monitor.awsEcsClusterName && monitor.awsEcsServiceName) || monitor.awsRoute53HealthCheckId) && (
+        <RootCauseCard monitorId={monitor.monitorId} />
       )}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
@@ -289,6 +284,86 @@ function SslCard({ monitor }: { monitor: MonitorDetail }) {
         </p>
       ) : (
         <p className="text-xs text-slate-500">Not checked yet — runs automatically on the next check tick.</p>
+      )}
+    </div>
+  );
+}
+
+function RootCauseCard({ monitorId }: { monitorId: string }) {
+  const [busy, setBusy] = useState(false);
+  const [snapshot, setSnapshot] = useState<RootCauseSnapshot | null>(null);
+
+  const check = async () => {
+    setBusy(true);
+    setSnapshot(null);
+    try {
+      const res = await fetch(`/api/monitors/${monitorId}/root-cause`, { method: "POST" });
+      const data = await res.json();
+      setSnapshot(data.snapshot);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <Search className="h-4 w-4 text-indigo-600" />
+          <h2 className="text-sm font-semibold text-slate-800">Root cause (AWS)</h2>
+        </div>
+        <button
+          onClick={check}
+          disabled={busy}
+          className="text-xs rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-100 disabled:opacity-50"
+        >
+          {busy ? "Checking…" : "Check now"}
+        </button>
+      </div>
+      <p className="text-xs text-slate-500 mb-3">
+        Real, on-demand snapshot of the AWS resources tagged on this endpoint — not a historical replay, just &quot;what does
+        AWS say right now.&quot;
+      </p>
+
+      {snapshot && !snapshot.available && (
+        <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+          {snapshot.reason}
+          {snapshot.reason?.includes("AWS Integration") && (
+            <>
+              {" "}
+              <Link href="/aws-integration" className="underline font-medium">
+                Set it up →
+              </Link>
+            </>
+          )}
+        </p>
+      )}
+
+      {snapshot?.available && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Overall:</span>
+            <StatusBadge status={snapshot.classification ?? "UNKNOWN"} />
+            <span className="text-xs text-slate-400">as of {new Date(snapshot.checkedAt!).toLocaleTimeString()}</span>
+          </div>
+          {snapshot.alb && (
+            <div className="text-xs text-slate-600">
+              <span className="font-medium">ALB target health:</span>{" "}
+              {snapshot.alb.error ?? `${snapshot.alb.healthy} healthy / ${snapshot.alb.unhealthy} unhealthy / ${snapshot.alb.other} other`}
+            </div>
+          )}
+          {snapshot.ecs && (
+            <div className="text-xs text-slate-600">
+              <span className="font-medium">ECS service:</span>{" "}
+              {snapshot.ecs.error ?? `${snapshot.ecs.runningCount}/${snapshot.ecs.desiredCount} tasks running`}
+            </div>
+          )}
+          {snapshot.route53 && (
+            <div className="text-xs text-slate-600">
+              <span className="font-medium">Route 53 health check:</span> {snapshot.route53.error ?? snapshot.route53.status}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

@@ -2,19 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Users,
-  SearchCode,
-  FileText,
-  Wallet,
-  GitPullRequestArrow,
-  Bell,
-  BarChart3,
-  ShieldCheck,
-  Activity,
-  Radar,
-} from "lucide-react";
+import { Bell, Cloud, Activity, Radar } from "lucide-react";
 import { useIdentity, type Role } from "./IdentityContext";
 
 const SEEDED_IDENTITIES: { actor: string; role: Role; label: string }[] = [
@@ -31,25 +19,14 @@ interface NavItem {
   roles?: Role[];
 }
 
-// Section: two-product split. "Uptime Monitoring" is Product 1 -- works
-// standalone, no AWS access needed, this is what a prospect sees before
-// they've granted anything. "AWS Evidence" is Product 2 -- explains WHY
-// a Product-1-detected outage happened, requires AWS access per customer.
+// Single product: Uptime Monitoring. AWS Integration is an optional
+// enrichment (real cross-account root-cause lookups for a monitor's
+// downtime), not a separate customer-facing product anymore.
 const UPTIME_NAV: NavItem[] = [{ href: "/monitors", label: "Monitors", icon: Radar }];
 
-const AWS_EVIDENCE_NAV: NavItem[] = [
-  { href: "/dashboard", label: "SLA Dashboard", icon: LayoutDashboard },
-  { href: "/customers", label: "Customers", icon: Users },
-  { href: "/evidence", label: "Evidence Explorer", icon: SearchCode },
-  { href: "/reports", label: "Reports", icon: FileText, roles: ["ADMIN", "SRE", "CSM"] },
-  { href: "/credits", label: "Credits", icon: Wallet, roles: ["ADMIN", "SRE"] },
-  { href: "/corrections", label: "Corrections & Disputes", icon: GitPullRequestArrow, roles: ["ADMIN", "SRE"] },
-];
-
 const OTHER_NAV: NavItem[] = [
+  { href: "/aws-integration", label: "AWS Integration", icon: Cloud, roles: ["ADMIN", "SRE"] },
   { href: "/notifications", label: "Notifications", icon: Bell, roles: ["ADMIN", "SRE", "CSM"] },
-  { href: "/executive", label: "Executive Portfolio", icon: BarChart3, roles: ["ADMIN", "SRE", "EXECUTIVE"] },
-  { href: "/portal-admin", label: "Trust Portal Admin", icon: ShieldCheck, roles: ["ADMIN"] },
 ];
 
 const ROLE_COLORS: Record<Role, string> = {
@@ -143,7 +120,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           {renderGroup("Uptime Monitoring", UPTIME_NAV)}
-          {renderGroup("AWS Evidence (add-on)", AWS_EVIDENCE_NAV)}
           {renderGroup("More", OTHER_NAV)}
         </nav>
 

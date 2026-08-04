@@ -2,10 +2,9 @@ import { withTenant } from "@/lib/db";
 import { appendMonitorAuditEvent } from "@/lib/monitorAuditLog";
 import type { Monitor } from "@/lib/monitors";
 
-// Product 1's fail-closed monthly SLA calculation -- same guarantee as
-// Section 9.4/11.2 for Product 2 (customer_sla_status): never guess
-// COMPLIANT/BREACHED on an incomplete data window. Completeness here
-// assumes the default 60s check interval (one row per minute); a monitor
+// Fail-closed monthly SLA calculation: never guess COMPLIANT/BREACHED on
+// an incomplete data window. Completeness here assumes the default 60s
+// check interval (one row per minute); a monitor
 // configured with a longer interval will show lower completeness, which
 // is the correct fail-closed behavior, not a bug -- v1 is scoped around
 // the 60s default.

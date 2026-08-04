@@ -5,7 +5,6 @@ import { useIdentity } from "@/components/IdentityContext";
 
 interface Notification {
   id: string;
-  customer_id: string | null;
   channel: string;
   severity: string;
   message: string;
@@ -37,8 +36,8 @@ export default function NotificationsPage() {
     <div>
       <h1 className="text-xl font-semibold mb-1">Notifications</h1>
       <p className="text-sm text-slate-500 mb-6">
-        Local-dev stand-in for Slack + PagerDuty (Section 13.4) — breach predictions, drift alerts,
-        and renewal risk flags land here instead of a real channel.
+        Local-dev stand-in for Slack + PagerDuty — monitor downtime and recovery alerts land here
+        instead of a real channel.
       </p>
 
       {notifications === null ? (

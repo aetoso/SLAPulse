@@ -18,7 +18,6 @@ export interface Monitor {
   port: number | null;
   intervalSeconds: number;
   contractSlaPct: number;
-  linkedCustomerId: string | null;
   status: string;
   createdAt: string;
   regions: string[];
@@ -38,6 +37,13 @@ export interface Monitor {
   maintenanceWindows: MaintenanceWindow[];
   showOnStatusPage: boolean;
   lastNotifiedStatus: string | null;
+  // Optional AWS resource tags -- when set (and the vendor has a
+  // CONNECTED AWS integration), the monitor detail page can run an
+  // on-demand real root-cause lookup against these resources.
+  awsAlbTargetGroupArn: string | null;
+  awsEcsClusterName: string | null;
+  awsEcsServiceName: string | null;
+  awsRoute53HealthCheckId: string | null;
 }
 
 function mapRow(r: Record<string, unknown>): Monitor {
@@ -51,7 +57,6 @@ function mapRow(r: Record<string, unknown>): Monitor {
     port: (r.port as number) ?? null,
     intervalSeconds: r.interval_seconds as number,
     contractSlaPct: Number(r.contract_sla_pct),
-    linkedCustomerId: (r.linked_customer_id as string) ?? null,
     status: r.status as string,
     createdAt: r.created_at as string,
     regions: (r.regions as string[]) ?? [],
@@ -71,6 +76,10 @@ function mapRow(r: Record<string, unknown>): Monitor {
     maintenanceWindows: (r.maintenance_windows as MaintenanceWindow[]) ?? [],
     showOnStatusPage: r.show_on_status_page as boolean,
     lastNotifiedStatus: (r.last_notified_status as string) ?? null,
+    awsAlbTargetGroupArn: (r.aws_alb_target_group_arn as string) ?? null,
+    awsEcsClusterName: (r.aws_ecs_cluster_name as string) ?? null,
+    awsEcsServiceName: (r.aws_ecs_service_name as string) ?? null,
+    awsRoute53HealthCheckId: (r.aws_route53_health_check_id as string) ?? null,
   };
 }
 
@@ -97,7 +106,6 @@ export interface CreateMonitorInput {
   port?: number | null;
   intervalSeconds?: number;
   contractSlaPct: number;
-  linkedCustomerId?: string | null;
   regions?: string[];
   keyword?: string | null;
   keywordMode?: "PRESENT" | "ABSENT" | null;
@@ -108,6 +116,10 @@ export interface CreateMonitorInput {
   heartbeatExpectedIntervalSeconds?: number | null;
   heartbeatGraceSeconds?: number | null;
   showOnStatusPage?: boolean;
+  awsAlbTargetGroupArn?: string | null;
+  awsEcsClusterName?: string | null;
+  awsEcsServiceName?: string | null;
+  awsRoute53HealthCheckId?: string | null;
 }
 
 const ALL_REGIONS = ["us-east-1", "eu-west-1", "ap-southeast-1"];
@@ -119,10 +131,11 @@ export async function createMonitor(vendorId: string, actor: string, input: Crea
     const { rows } = await client.query(
       `INSERT INTO uptime_monitors
          (vendor_id, monitor_id, name, target_url, check_type, port, interval_seconds, contract_sla_pct,
-          linked_customer_id, regions, keyword, keyword_mode, ssl_check_enabled, ssl_expiry_warning_days,
+          regions, keyword, keyword_mode, ssl_check_enabled, ssl_expiry_warning_days,
           confirmation_minutes, webhook_url, heartbeat_token, heartbeat_expected_interval_seconds,
-          heartbeat_grace_seconds, show_on_status_page)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+          heartbeat_grace_seconds, show_on_status_page,
+          aws_alb_target_group_arn, aws_ecs_cluster_name, aws_ecs_service_name, aws_route53_health_check_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
        RETURNING *`,
       [
         vendorId,
@@ -133,7 +146,6 @@ export async function createMonitor(vendorId: string, actor: string, input: Crea
         input.port ?? null,
         input.intervalSeconds ?? 60,
         input.contractSlaPct,
-        input.linkedCustomerId ?? null,
         input.regions && input.regions.length > 0 ? input.regions : ALL_REGIONS,
         input.keyword ?? null,
         input.keywordMode ?? null,
@@ -145,6 +157,10 @@ export async function createMonitor(vendorId: string, actor: string, input: Crea
         input.heartbeatExpectedIntervalSeconds ?? null,
         input.heartbeatGraceSeconds ?? null,
         input.showOnStatusPage ?? true,
+        input.awsAlbTargetGroupArn ?? null,
+        input.awsEcsClusterName ?? null,
+        input.awsEcsServiceName ?? null,
+        input.awsRoute53HealthCheckId ?? null,
       ]
     );
     await appendMonitorAuditEvent(client, {

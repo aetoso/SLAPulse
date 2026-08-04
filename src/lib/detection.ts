@@ -1,22 +1,13 @@
-// Section 9.2 — Downtime Detection Algorithm (corrected), extended by
-// F-SYN (Section 6) for customers with synthetic_monitoring_enabled.
+// Downtime classification, reused by the on-demand AWS root-cause
+// snapshot (src/lib/awsRootCause.ts): a monitor's endpoint is
+// classified DOWNTIME when Route53 health checks are failing AND the
+// ALB target group is unhealthy AND ECS has no healthy running tasks --
+// three independent signals have to agree before calling it downtime,
+// so a single flaky signal doesn't produce a false DOWNTIME verdict.
 //
 // Infrastructure Downtime = (route53_status == "FAILURE")
 //                        AND (alb_5xx_pct > 50.0)
 //                        AND (ecs_running_tasks == 0 OR ecs_health_status == "UNHEALTHY")
-//
-// Application Downtime = (synthetic_failed == true)
-//                     AND (route53_status != "FAILURE")
-//                     AND (alb_5xx_pct <= 50.0)
-//
-// downtime_minute = Infrastructure Downtime OR Application Downtime
-//
-// These are two INDEPENDENT paths, not merged into a single expression --
-// mixing synthetic_failed into the infra conditions would let a synthetic
-// failure get masked by healthy infra signals, which is the exact gap
-// F-SYN exists to close (Section 6, F-SYN architecture note). This
-// function is the credibility moat referenced in Section 19.5 — keep it
-// exactly as specified, do not "improve" it without going through the spec.
 
 export type Route53Status = "SUCCESS" | "FAILURE";
 export type EcsHealthStatus = "HEALTHY" | "UNHEALTHY";
@@ -29,8 +20,6 @@ export interface MinuteSignals {
   ecsRunningTasks: number | null;
   ecsDesiredTasks: number | null;
   ecsHealthStatus: EcsHealthStatus | null;
-  syntheticFailed?: boolean | null;
-  syntheticResponseTimeMs?: number | null;
 }
 
 export interface ClassificationResult {
@@ -62,10 +51,8 @@ export function classifyMinute(
   const ecsUnhealthy = ecsRunningTasks === 0 || ecsHealthStatus === "UNHEALTHY";
 
   const infrastructureDowntime = route53Failed && alb5xxOverThreshold && ecsUnhealthy;
-  const applicationDowntime =
-    signals.syntheticFailed === true && !route53Failed && (alb5xxPct ?? 0) <= DOWNTIME_5XX_THRESHOLD;
 
-  if (infrastructureDowntime || applicationDowntime) {
+  if (infrastructureDowntime) {
     return { classification: "DOWNTIME", isAvailable: false };
   }
 

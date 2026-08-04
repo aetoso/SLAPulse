@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ mon
   if (!monitor) return NextResponse.json({ error: "Monitor not found" }, { status: 404 });
 
   const data = await withTenant(identity.vendorId, async (client) => {
-    const [history, recentMinutes, linkedCustomer] = await Promise.all([
+    const [history, recentMinutes] = await Promise.all([
       client.query(
         `SELECT month, status, uptime_pct, downtime_minutes, data_completeness_pct, avg_response_time_ms, formula_version
          FROM monitor_sla_status WHERE vendor_id = $1 AND monitor_id = $2 AND is_active_for_display = true
@@ -25,14 +25,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ mon
          ORDER BY minute_timestamp DESC LIMIT 180`,
         [identity.vendorId, monitorId]
       ),
-      monitor.linkedCustomerId
-        ? client.query(`SELECT customer_id, customer_name FROM customers WHERE vendor_id = $1 AND customer_id = $2`, [
-            identity.vendorId,
-            monitor.linkedCustomerId,
-          ])
-        : Promise.resolve({ rows: [] }),
     ]);
-    return { history: history.rows, recentMinutes: recentMinutes.rows.reverse(), linkedCustomer: linkedCustomer.rows[0] ?? null };
+    return { history: history.rows, recentMinutes: recentMinutes.rows.reverse() };
   });
 
   return NextResponse.json({ monitor, ...data });

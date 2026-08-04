@@ -55,9 +55,7 @@ export async function probeHttps(url: string, timeoutMs = DEFAULT_TIMEOUT_MS): P
 // Keyword monitoring: same GET as an HTTPS check, but the pass/fail
 // condition is "does the body contain (or not contain) this text" --
 // catches the "200 OK but showing an error page" class of outage that a
-// bare status-code check misses (Section 9.2's documented blind spot,
-// now closeable from the outside too, not just via F-SYN inside a
-// customer's AWS account).
+// bare status-code check misses.
 export async function probeKeyword(
   url: string,
   keyword: string,

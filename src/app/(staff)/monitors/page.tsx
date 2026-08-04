@@ -19,7 +19,6 @@ interface MonitorRow {
   currentlyUp: boolean | null;
   lastCheckedAt: string | null;
   avgResponseTimeMs: number | null;
-  linkedCustomerId: string | null;
 }
 
 export default function MonitorsPage() {
@@ -238,7 +237,6 @@ function AddMonitorForm({ onDone, onError }: { onDone: () => void; onError: (e: 
     port: "",
     intervalSeconds: "60",
     contractSlaPct: "99.9",
-    linkedCustomerId: "",
     regions: [...ALL_REGIONS],
     keyword: "",
     keywordMode: "PRESENT",
@@ -249,15 +247,12 @@ function AddMonitorForm({ onDone, onError }: { onDone: () => void; onError: (e: 
     heartbeatExpectedIntervalSeconds: "300",
     heartbeatGraceSeconds: "60",
     showOnStatusPage: true,
+    awsAlbTargetGroupArn: "",
+    awsEcsClusterName: "",
+    awsEcsServiceName: "",
+    awsRoute53HealthCheckId: "",
   });
-  const [customers, setCustomers] = useState<{ customerId: string; customerName: string }[]>([]);
-
-  useEffect(() => {
-    fetch("/api/customers")
-      .then((r) => r.json())
-      .then((d) => setCustomers(d.customers ?? []))
-      .catch(() => {});
-  }, []);
+  const [showAwsTags, setShowAwsTags] = useState(false);
 
   const toggleRegion = (region: string) => {
     setForm((f) => ({
@@ -279,7 +274,6 @@ function AddMonitorForm({ onDone, onError }: { onDone: () => void; onError: (e: 
           port: form.port ? Number(form.port) : null,
           intervalSeconds: Number(form.intervalSeconds),
           contractSlaPct: Number(form.contractSlaPct),
-          linkedCustomerId: form.linkedCustomerId || null,
           keyword: form.checkType === "KEYWORD" ? form.keyword : null,
           keywordMode: form.checkType === "KEYWORD" ? form.keywordMode : null,
           sslExpiryWarningDays: Number(form.sslExpiryWarningDays),
@@ -344,7 +338,7 @@ function AddMonitorForm({ onDone, onError }: { onDone: () => void; onError: (e: 
           <option value="KEYWORD">Keyword (content must/must not contain text)</option>
           <option value="TCP">TCP port</option>
           <option value="PING">Ping (TCP handshake latency)</option>
-          <option value="HEARTBEAT">Heartbeat / cron (dead man's switch)</option>
+          <option value="HEARTBEAT">Heartbeat / cron (dead man&apos;s switch)</option>
         </select>
       </label>
       {(form.checkType === "TCP" || form.checkType === "PING") && (
@@ -487,21 +481,59 @@ function AddMonitorForm({ onDone, onError }: { onDone: () => void; onError: (e: 
         />
       </label>
 
-      <label className="flex flex-col gap-1 col-span-2">
-        Link to AWS-monitored customer (optional — enables &quot;why did it go down&quot; evidence)
-        <select
-          value={form.linkedCustomerId}
-          onChange={(e) => setForm({ ...form, linkedCustomerId: e.target.value })}
-          className="border border-slate-200 rounded-lg px-2.5 py-1.5"
+      <div className="col-span-2 border-t border-slate-100 pt-3">
+        <button
+          type="button"
+          onClick={() => setShowAwsTags((s) => !s)}
+          className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
         >
-          <option value="">None</option>
-          {customers.map((c) => (
-            <option key={c.customerId} value={c.customerId}>
-              {c.customerName}
-            </option>
-          ))}
-        </select>
-      </label>
+          {showAwsTags ? "Hide" : "Show"} AWS resource tags (optional — enables root-cause lookups) →
+        </button>
+        {showAwsTags && (
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <p className="col-span-2 text-xs text-slate-500">
+              Tag this endpoint with the AWS resources behind it and, once{" "}
+              <Link href="/aws-integration" className="text-indigo-600 hover:underline">
+                AWS Integration
+              </Link>{" "}
+              is connected, its detail page can run a real on-demand root-cause check. Leave blank if not applicable.
+            </p>
+            <label className="flex flex-col gap-1 col-span-2">
+              ALB target group ARN
+              <input
+                value={form.awsAlbTargetGroupArn}
+                onChange={(e) => setForm({ ...form, awsAlbTargetGroupArn: e.target.value })}
+                className="border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono text-xs"
+                placeholder="arn:aws:elasticloadbalancing:...:targetgroup/..."
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              ECS cluster name
+              <input
+                value={form.awsEcsClusterName}
+                onChange={(e) => setForm({ ...form, awsEcsClusterName: e.target.value })}
+                className="border border-slate-200 rounded-lg px-2.5 py-1.5"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              ECS service name
+              <input
+                value={form.awsEcsServiceName}
+                onChange={(e) => setForm({ ...form, awsEcsServiceName: e.target.value })}
+                className="border border-slate-200 rounded-lg px-2.5 py-1.5"
+              />
+            </label>
+            <label className="flex flex-col gap-1 col-span-2">
+              Route 53 health check ID
+              <input
+                value={form.awsRoute53HealthCheckId}
+                onChange={(e) => setForm({ ...form, awsRoute53HealthCheckId: e.target.value })}
+                className="border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono text-xs"
+              />
+            </label>
+          </div>
+        )}
+      </div>
 
       <label className="flex items-center gap-2 col-span-2">
         <input

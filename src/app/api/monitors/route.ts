@@ -16,7 +16,6 @@ const CreateSchema = z.object({
   port: z.number().int().positive().optional().nullable(),
   intervalSeconds: z.number().int().min(30).max(3600).optional(),
   contractSlaPct: z.number().gt(0).lte(100),
-  linkedCustomerId: z.string().optional().nullable(),
   regions: z.array(z.enum(["us-east-1", "eu-west-1", "ap-southeast-1"])).min(1).optional(),
   keyword: z.string().max(255).optional().nullable(),
   keywordMode: z.enum(["PRESENT", "ABSENT"]).optional().nullable(),
@@ -27,6 +26,10 @@ const CreateSchema = z.object({
   heartbeatExpectedIntervalSeconds: z.number().int().positive().optional().nullable(),
   heartbeatGraceSeconds: z.number().int().nonnegative().optional().nullable(),
   showOnStatusPage: z.boolean().optional(),
+  awsAlbTargetGroupArn: z.string().max(500).optional().nullable().or(z.literal("")),
+  awsEcsClusterName: z.string().max(255).optional().nullable().or(z.literal("")),
+  awsEcsServiceName: z.string().max(255).optional().nullable().or(z.literal("")),
+  awsRoute53HealthCheckId: z.string().max(64).optional().nullable().or(z.literal("")),
 });
 
 export async function GET() {
@@ -80,6 +83,10 @@ export async function POST(req: NextRequest) {
     const monitor = await createMonitor(identity.vendorId, identity.actor, {
       ...parsed.data,
       webhookUrl: parsed.data.webhookUrl || null,
+      awsAlbTargetGroupArn: parsed.data.awsAlbTargetGroupArn || null,
+      awsEcsClusterName: parsed.data.awsEcsClusterName || null,
+      awsEcsServiceName: parsed.data.awsEcsServiceName || null,
+      awsRoute53HealthCheckId: parsed.data.awsRoute53HealthCheckId || null,
     });
     return NextResponse.json({ monitor }, { status: 201 });
   } catch (err) {

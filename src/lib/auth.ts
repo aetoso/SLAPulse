@@ -41,50 +41,25 @@ export function identityCookieName() {
 export const ROLE_PERMISSIONS: Record<
   Role,
   {
-    manageCustomers: boolean;
-    viewAllCustomers: boolean;
-    viewEvidence: boolean;
-    triggerCorrections: boolean;
-    viewAuditLog: boolean;
-    viewExecutiveDashboard: boolean;
     manageMonitors: boolean;
+    manageAwsConnection: boolean;
   }
 > = {
   ADMIN: {
-    manageCustomers: true,
-    viewAllCustomers: true,
-    viewEvidence: true,
-    triggerCorrections: true,
-    viewAuditLog: true,
-    viewExecutiveDashboard: true,
     manageMonitors: true,
+    manageAwsConnection: true,
   },
   SRE: {
-    manageCustomers: false,
-    viewAllCustomers: true,
-    viewEvidence: true,
-    triggerCorrections: true,
-    viewAuditLog: true,
-    viewExecutiveDashboard: true,
     manageMonitors: true,
+    manageAwsConnection: true,
   },
   CSM: {
-    manageCustomers: false,
-    viewAllCustomers: false,
-    viewEvidence: true,
-    triggerCorrections: false,
-    viewAuditLog: false,
-    viewExecutiveDashboard: false,
     manageMonitors: false,
+    manageAwsConnection: false,
   },
   EXECUTIVE: {
-    manageCustomers: false,
-    viewAllCustomers: false,
-    viewEvidence: false,
-    triggerCorrections: false,
-    viewAuditLog: false,
-    viewExecutiveDashboard: true,
     manageMonitors: false,
+    manageAwsConnection: false,
   },
 };
 
